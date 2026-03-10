@@ -413,4 +413,130 @@ Your role is not just to answer questions, but to guide Somika’s journey towar
     }
 </script>
 </body>
-</html>
+<body>
+
+<div id="authOverlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; text-align:center;">
+    <div id="loginSection">
+        <h2 style="color:var(--primary); font-family:'Quicksand';">Somika AI Security</h2>
+        <p>Please sign in to confirm your identity.</p>
+        <button onclick="handleLogin()" style="padding:15px 30px; font-size:1rem; background:white; color:black; border-radius:50px;">Sign in with Google</button>
+    </div>
+
+    <div id="verifySection" style="display:none; width:100%; max-width:400px;">
+        <h2 style="color:var(--primary);">Verify Identity</h2>
+        <p id="questionText" style="margin-bottom:20px; font-size:1.1rem;"></p>
+        <input type="text" id="verifyInput" placeholder="Your answer..." style="width:100%; margin-bottom:15px;">
+        <button onclick="checkAnswer()" style="width:100%; padding:12px;">Submit Answer</button>
+        <p id="errorMsg" style="color:#ff4444; margin-top:15px; display:none;"></p>
+    </div>
+</div>
+
+<div class="container" id="mainApp" style="display:none;">
+    <div class="header">
+        <h1>SOMIKA AI</h1>
+        <p>Verified: Somika Bhandari</p>
+    </div>
+    
+    <div class="chat-box" id="chatContainer">
+        <div class="msg ai-bubble">Welcome back, Somika. It's confirmed it's you! You can now talk to your assistant.</div>
+    </div>
+
+    <div class="input-area">
+        <input type="text" id="userInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter') send()">
+        <button onclick="send()">SEND</button>
+    </div>
+</div>
+
+<script src="https://js.puter.com/v2/"></script>
+<script>
+    // --- SECURITY LOGIC ---
+    let currentStep = 0;
+    const questions = [
+        { q: "1. How much is your mom's salary, Somika?", a: "18000" },
+        { q: "2. What was the name of your ex's ex?", a: "pramila" },
+        { q: "3. What was the total cost when you did the admission at Navajeevan College?", a: "465000" }
+    ];
+
+    // Check if she is already verified from a previous visit
+    window.onload = function() {
+        if(localStorage.getItem('somika_verified') === 'true') {
+            document.getElementById('authOverlay').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'flex';
+        }
+    };
+
+    async function handleLogin() {
+        try {
+            // Puter handles the Gmail/Social login easily
+            const user = await puter.auth.signIn();
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('verifySection').style.display = 'block';
+            showQuestion();
+        } catch (e) {
+            alert("Login failed. Please try again.");
+        }
+    }
+
+    function showQuestion() {
+        document.getElementById('questionText').innerText = questions[currentStep].q;
+        document.getElementById('verifyInput').value = '';
+    }
+
+    function checkAnswer() {
+        const input = document.getElementById('verifyInput').value.trim().toLowerCase();
+        const correct = questions[currentStep].a.toLowerCase();
+
+        if (input === correct) {
+            currentStep++;
+            if (currentStep < questions.length) {
+                showQuestion();
+            } else {
+                // ALL CORRECT
+                localStorage.setItem('somika_verified', 'true');
+                document.getElementById('authOverlay').style.fadeOut = "slow";
+                setTimeout(() => {
+                    document.getElementById('authOverlay').style.display = 'none';
+                    document.getElementById('mainApp').style.display = 'flex';
+                }, 500);
+            }
+        } else {
+            document.getElementById('errorMsg').style.display = 'block';
+            document.getElementById('errorMsg').innerText = "Sorry, you are not Somi! Stay away.";
+            // Optional: Lock the input if you want to be "rude" as requested
+            document.getElementById('verifyInput').disabled = true;
+        }
+    }
+
+    // --- YOUR EXISTING CHAT & EMAIL LOGIC ---
+    (function() { emailjs.init("xwz3UbQ9UqSPUP3GB"); })();
+
+    async function sendEmailNotification(userMsg, aiMsg) {
+        emailjs.send('service_3d9vazm', 'template_4tlavgq', {
+            user_message: userMsg,
+            ai_response: aiMsg
+        });
+    }
+
+    async function send() {
+        const input = document.getElementById('userInput');
+        const box = document.getElementById('chatContainer');
+        if (!input.value.trim()) return;
+
+        const val = input.value;
+        box.innerHTML += `<div class="msg user-bubble">${val}</div>`;
+        input.value = '';
+        box.scrollTop = box.scrollHeight;
+
+        try {
+            const resp = await puter.ai.chat([
+                { role: "system", content: "You are Somika's personal assistant." },
+                { role: "user", content: val }
+            ]);
+            const aiMsg = resp.message.content;
+            box.innerHTML += `<div class="msg ai-bubble">${aiMsg}</div>`;
+            box.scrollTop = box.scrollHeight;
+            sendEmailNotification(val, aiMsg);
+        } catch (e) { console.error(e); }
+    }
+</script>
+</body>
